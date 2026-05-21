@@ -1,0 +1,87 @@
+---
+title: Nest
+description: CSS-for-Nix. Declare infrastructure as a DOM tree, write rules like CSS, configure everything by trait.
+template: splash
+hero:
+  tagline: |
+    CSS-rule driven Nix Configurations.
+    Describe infra as DOM, configure it across multiple Nix domains.
+  image:
+   html: |
+     <img src="/nest.png" style="max-width: 80%" />
+  actions:
+    - text: Overview
+      link: /overview
+      icon: nix
+    - text: Getting Started
+      link: /guides/getting-started/
+      icon: rocket
+      variant: minimal
+    - text: Multi-Env Fleet
+      link: /guides/fleet/
+      icon: puzzle
+      variant: minimal
+    - text: Source Code
+      link: https://github.com/vic/nest
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkButton, Aside } from '@astrojs/starlight/components';
+
+**Nest is a declarative framework for multi-node NixOS infrastructure**.
+It applies the CSS mental model to system configuration:
+nodes are entities in a DOM tree, traits are classes,
+and rules map selectors to configuration.
+
+
+<CardGrid>
+  <Card title="Tree" icon="approve-check">
+    Infrastructure as a hierarchy. Hosts, users, services as nodes. Trees share attributes down, Nodes contribute config up.
+  </Card>
+  <Card title="Traits" icon="list-format">
+    Mark nodes with what they are. Traits compose. `web.needs = [server]` chains automatically.
+  </Card>
+  <Card title="Rules" icon="pencil">
+    CSS selectors that apply config. Match by trait, attribute, hierarchy, or relationship.
+  </Card>
+  <Card title="Any Nix config system" icon="nix">
+    NixOS, HomeManager, neovim, Terraform. Same model everywhere.
+  </Card>
+</CardGrid>
+
+---
+
+<Aside title="How is Nest related to Den" icon="nix">
+
+Nest, like many other `gen-*/denful` libraries, was created with the
+ultimate goal of taking [Den](https://github.com/denful/den) to the next level.
+Not only configuring home-labs but infrastructure at scale
+that requires dependent configurations and high degree of maintainability
+and modularity.
+
+Nest has been used to exercise [sini/gen-scope](https://github.com/sini/gen-scope/tree/feat/nest-traits-template/templates/nest-traits), 
+and related `gen-*` libraries powering future Den [graphs](https://github.com/sini/gen-graph/blob/main/GUIDE.md).
+As a way that allows us to explore new paths without affecting current API and stability that Den users expect.
+
+However Nest can stand by itself, has zero dependencies
+and can be used independently by people who like its **design**.
+
+**You are welcome to use Nest on your home-lab**.
+Contributions are also welcome.
+Things keep in mind:
+
+- Like all other denful libs, Nest is supported. Even if the main development effort is focused on Den.
+  > Join us at `#denful:matrix.org` if you have questions about any denful project.
+
+- Nest is feature complete. It might not see many new features unless they are minimalistic.
+  > Bug reports and Bug fixes are more than welcome.
+
+- Nest is minimalistic by design. Its core tenet from the beginning was: Less is More.
+  > No batteries, zero dependencies.
+  > Nest explores having as much Den features with as less code as possible.  
+
+- **Nest is a much smaller Den**
+  > While very capable on its own, we recommend Den for high-scale infrastructure.
+
+</Aside>

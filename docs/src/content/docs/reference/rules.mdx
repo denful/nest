@@ -1,0 +1,199 @@
+---
+title: Rules
+description: Rule format, class keys, function-valued rules, the synth key, and how multiple rules merge.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Rules live in `nest.rules` as a list of attrsets. Each rule has:
+- `is` — selector determining which nodes this rule applies to
+- One or more **class keys** (`nixos`, `user`, etc.) — config contributed to matching nodes
+
+```nix
+nest.rules = [
+  {
+    is   = nest.host;         # selector
+    nixos = { … };            # class key: contributes to nixos class config
+  }
+];
+```
+
+## The `is` selector
+
+Any [selector](/reference/selectors) form:
+
+```nix
+is = nest.host
+is = [ nest.host nest.web ]
+is = [ nest.host (nest.has nest.admin) ]
+is = nest.attrs { env = "prod"; }
+is = "*.web"
+```
+
+## Class keys
+
+Each key besides `is` is a **class key**. It contributes config to the matching node's merged config for that class.
+
+### Static attrset
+
+```nix
+{
+  is = nest.nginx;
+  nixos.services.nginx.enable = true;
+}
+```
+
+### Function (receives `select` + entity arg)
+
+When the value is a function, it receives named args it declares:
+
+```nix
+{
+  is = nest.host;
+  nixos = { host, select, ... }:
+    {
+      networking.hostName = host.name;
+      networking.extraHosts =
+        lib.concatMapStringsSep "\n"
+          (p: "${p.addr} ${p.name}")
+          (select.siblings nest.host);
+    };
+}
+```
+
+Available args:
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `select` | select context | [Select API](/reference/select) for this node |
+| entity arg | node | The node itself, keyed by entity trait name (`host`, `user`, `alice`, etc.) |
+
+Only declare the args you need — unused args are filtered out.
+
+### Function arg for different entity types
+
+```nix
+# host entity
+nixos = { host, ... }:   { networking.hostName = host.name; }
+
+# user entity
+user  = { user, ... }:   { isNormalUser = true; openssh.authorizedKeys.keys = user.sshKeys; }
+
+# any node — just use select
+nixos = { select, ... }: { result = select.node.someAttr; }
+```
+
+## Multiple rules, same node
+
+When multiple rules match a node, their contributions are **collected as a list** — one entry per matching rule. Nest does not deep-merge them. The class fn receives the full list and passes it to `nixosSystem`, which lets the NixOS module system handle merging with proper semantics (`lib.mkForce`, `lib.mkDefault`, type checking, conflict detection):
+
+```nix
+nest.rules = [
+  { is = nest.host;  nixos.networking.hostName = "default"; }
+  { is = "#web-1";   nixos.networking.hostName = "web-1"; }
+  # Both entries go into the modules list passed to nixosSystem.
+  # NixOS sees two definitions for networking.hostName and merges by option type.
+];
+```
+
+Multiple rules targeting different keys compose naturally:
+
+```nix
+{ is = nest.host;   nixos.nix.settings.experimental-features = [ "nix-command" ]; }
+{ is = nest.nginx;  nixos.services.nginx.enable = true; }
+
+# For a node with both host and nginx:
+# nixosSystem receives both attrsets as separate modules — no nest-level merge needed
+```
+
+## The `synth` key
+
+A rule can carry a `synth` key — processed identically to [trait synth](/reference/traits#synth) but fired by rule matching:
+
+```nix
+{
+  is = [ nest.host (nest.attrs { env = "prod"; }) ];
+  synth = { select, ... }: {
+    node.children = map (u: {
+      inherit (u) name sshKeys;
+      is = [ nest.user nest.admin ];
+    }) (select nest.admin);
+  };
+}
+```
+
+Rule synth runs after all rule matching completes. Synthesized children are then re-evaluated against all rules — they participate fully in output processing.
+
+<Aside type="caution">
+Rule synth children are not visible to other rules' `is` selectors in the same pass.
+</Aside>
+
+## Rule ordering
+
+Rules are evaluated in list order. Within a single rule, class keys are merged in attrset key order (Nix attrset key order is alphabetical). Across multiple rules, later rules override earlier ones for the same path.
+
+## Complete rule example
+
+```nix
+nest.rules = [
+
+  # Static config for all hosts
+  {
+    is   = nest.host;
+    nixos = {
+      system.stateVersion = "25.11";
+      boot.loader.grub.enable = false;
+    };
+  }
+
+  # Dynamic config using select.node
+  {
+    is   = nest.host;
+    nixos = { host, ... }: {
+      networking.hostName = host.name;
+    };
+  }
+
+  # Cross-node query via select.siblings
+  {
+    is   = nest.lb;
+    nixos = { select, ... }:
+      let webs = select.siblings nest.web;
+      in {
+        services.haproxy.backends = map (w: w.addr) webs;
+      };
+  }
+
+  # Compound selector: host with admin child
+  {
+    is   = [ nest.host (nest.has nest.admin) ];
+    nixos.security.sudo.wheelNeedsPassword = false;
+  }
+
+  # Rule synth: inject children
+  {
+    is    = [ nest.host (nest.attrs { env = "prod"; }) ];
+    synth = { select, ... }: {
+      node.children =
+        map (u: { inherit (u) name sshKeys; is = [ nest.user nest.admin ]; })
+            (select nest.admin);
+    };
+  }
+
+  # User rule: fires on synthesized user children
+  {
+    is   = nest.user;
+    user = { user, ... }: {
+      isNormalUser = true;
+      openssh.authorizedKeys.keys = user.sshKeys;
+    };
+  }
+
+  # Admin role adds wheel group
+  {
+    is        = nest.admin;
+    user.extraGroups = [ "wheel" ];
+  }
+
+];
+```

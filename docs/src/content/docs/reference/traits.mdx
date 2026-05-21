@@ -1,0 +1,162 @@
+---
+title: Traits
+description: Complete trait API — class, needs, neededBy, synth — with signatures and examples.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Traits are defined under `nest.trait`. They are accessible as `nest.<traitName>` in your DOM and rules.
+
+## `class`
+
+Declares that this trait is an **entity trait** — nodes with this trait produce output.
+
+```nix
+# host: receives list of NixOS module contributions, passes directly to nixosSystem
+nest.trait.host.class.nixos =
+  select: modules:
+  nixpkgs.lib.nixosSystem {
+    system = select.node.system;
+    inherit modules;   # NixOS module system merges — nest does not
+  };
+```
+
+`class` is an attrset. Each key is an **output class name**. The value is a function `select: modules: <output>`:
+
+- `select` — the node's [select context](/reference/select)
+- `modules` — list of config contributions from all matching rules + child nodes
+- Return value — the output object (e.g., a `nixosSystem` or `homeManagerConfiguration`). Return `null` to produce no output.
+
+Nest collects rule contributions as a list and passes it whole to the class function. The class function decides how to use it. For `nixosSystem`, pass it directly as `modules` — the NixOS module system handles merging.
+
+Multiple class keys per trait:
+
+```nix
+nest.trait.user.class = {
+  # Forward user's own nixos contributions to parent host
+  nixos = select: modules: { nixos = modules; };
+  # Produce a users.users.<name> fragment for the parent host
+  user  = select: modules: {
+    nixos = [{ users.users.${select.node.name} = lib.mkMerge modules; }];
+  };
+};
+```
+
+The first non-null class function result determines which `byClass` bucket the output lands in.
+
+<Aside type="note">
+Nodes without any class trait produce no output. They are still valid DOM nodes, visible to `select`, and can be found by selectors.
+</Aside>
+
+## `needs`
+
+Declares explicit trait dependencies. Any node gaining this trait automatically gains all listed traits (transitively):
+
+```nix
+nest.trait.server.needs = [ nest.nginx nest.ssh nest.firewall ];
+nest.trait.web.needs    = [ nest.server ];   # web → server → nginx, ssh, firewall
+```
+
+`needs` may also be a function for late binding:
+
+```nix
+nest.trait.lb.needs = traits: [ traits.server ];
+```
+
+The function receives the fully processed trait tree.
+
+## `neededBy`
+
+Reverse dependency. The trait declares what selects it — any node matching the selector automatically gains this trait:
+
+```nix
+nest.trait.monitoring.neededBy = nest.server;
+# All server nodes gain monitoring — no opt-in required
+```
+
+`neededBy` accepts any selector (trait, compound, string, constructor). It is evaluated iteratively until fixpoint — chained `neededBy` declarations work:
+
+```nix
+nest.trait.node-exporter.neededBy = nest.monitoring;
+# server → monitoring → node-exporter (all automatic)
+```
+
+## `synth`
+
+Bottom-up synthesis. Runs after trait expansion + neededBy, before rules fire.
+
+**Signature:**
+
+```nix
+synth = select: { node = { … }; }
+# OR (destructuring, receives entity arg too)
+synth = { select, host, … }: { node = { … }; }
+```
+
+- Positional form (`select: …`) — receives `ctx.select` directly
+- Destructuring form (`{ select, host, … }: …`) — gets entity arg injected
+
+**Return format:**
+
+```nix
+{
+  node = {
+    derivedAttr = value;       # merged onto the node
+    anotherAttr = value;       # additional attrs
+    children = [               # virtual children injected as DOM nodes
+      {
+        name    = "alice";
+        is      = [ nest.user ];
+        sshKeys = [ "…" ];
+      }
+    ];
+  };
+}
+```
+
+Everything in `node` except `children` is merged onto the node as derived attributes (accessible via `select.node` in rules). `children` entries are injected as proper DOM nodes with full trait expansion applied.
+
+```nix
+# Example: count users
+nest.trait.host.synth = select: {
+  node.userCount = builtins.length (select.children nest.user);
+};
+
+# Example: inject users from registry
+nest.trait.host.synth = select:
+  let adminUsers = select nest.admin;
+  in {
+    node.children = map (u: {
+      inherit (u) name sshKeys;
+      is = [ nest.user nest.admin ];
+    }) adminUsers;
+  };
+```
+
+<Aside type="caution">
+`synth` sees pre-synthesis nodes for `select`. It cannot see children created by other synth calls in the same pass.
+</Aside>
+
+## Complete trait example
+
+```nix
+nest.trait.server = {
+  needs = [ nest.nginx nest.ssh ];        # dependencies
+};
+
+nest.trait.monitoring = {
+  neededBy = nest.server;                 # auto-inject on servers
+};
+
+nest.trait.host = {
+  class.nixos = select: modules:         # entity: produces nixosSystem
+    nixpkgs.lib.nixosSystem {
+      system = select.node.system;
+      inherit modules;                   # list passed directly — no deep-merge
+    };
+
+  synth = select: {                      # derive user count
+    node.userCount = builtins.length (select.children nest.user);
+  };
+};
+```

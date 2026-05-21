@@ -1,0 +1,150 @@
+---
+title: flakeModule
+description: Integrating Nest with flake-parts — options, evalResult, byClass routing, and output classes.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Nest ships a `flakeModule` for [flake-parts](https://flake.parts). It wires `nest.*` module options, evaluates the DOM pipeline, and routes outputs to flake attributes.
+
+## Adding nest to your flake
+
+```nix
+# flake.nix
+{
+  inputs = {
+    nest.url        = "github:vic/nest";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url     = "…";
+  };
+
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [ inputs.nest.flakeModules.default ];
+      # … your modules
+    };
+}
+```
+
+## Module options
+
+### `nest.*` (freeform)
+
+Everything under `nest.*` except `nest.trait` and `nest.rules` is the DOM. You write your topology here:
+
+```nix
+nest.prod.system = "x86_64-linux";
+nest.prod.web    = { is = [ nest.host ]; addr = "10.0.0.2"; };
+```
+
+### `nest.trait.*`
+
+Trait definitions. Each key under `nest.trait` becomes a trait in the processed trait tree:
+
+```nix
+nest.trait.host.class.nixos = select: cfg: nixpkgs.lib.nixosSystem { … };
+nest.trait.server.needs      = [ nest.nginx nest.ssh ];
+nest.trait.monitoring.neededBy = nest.server;
+```
+
+### `nest.rules`
+
+The rules list:
+
+```nix
+nest.rules = [
+  { is = nest.host; nixos = { host, ... }: { networking.hostName = host.name; }; }
+];
+```
+
+## The `nest` module arg
+
+`flakeModule` makes `nest` available in every module as a special argument. It exposes all your traits (`nest.host`, `nest.web`, etc.) and selector constructors (`nest.attrs`, `nest.has`, etc.).
+
+## `config.flake.nest`
+
+After evaluation, `config.flake.nest` exposes:
+
+```nix
+config.flake.nest.evalResult.byClass   # keyed by className → { nodeName → output }
+config.flake.nest.evalResult.outputs   # same but flat: { nodeName → output }
+```
+
+## Routing outputs
+
+`byClass` maps class names to output attrsets. Route them to flake outputs:
+
+```nix
+# nixosConfigurations
+flake.nixosConfigurations = config.flake.nest.evalResult.byClass.nixos or { };
+
+# homeConfigurations
+flake.homeConfigurations = config.flake.nest.evalResult.byClass.homeManager or { };
+
+# darwinConfigurations
+flake.darwinConfigurations = config.flake.nest.evalResult.byClass.darwin or { };
+
+# Custom output class (e.g., "terranix")
+flake.terranix = config.flake.nest.evalResult.byClass.terranix or { };
+```
+
+## Complete minimal flake
+
+```nix
+{
+  description = "Minimal Nest flake";
+
+  inputs = {
+    nest.url        = "github:vic/nest";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url     = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
+  };
+
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } ({ config, ... }: {
+      imports = [ inputs.nest.flakeModules.default ];
+
+      # Route byClass.nixos to nixosConfigurations
+      options.flake.nixosConfigurations = inputs.nixpkgs.lib.mkOption { };
+      config.flake.nixosConfigurations =
+        config.flake.nest.evalResult.byClass.nixos or { };
+
+      # Entity trait
+      nest.trait.host.class.nixos = select: cfg:
+        inputs.nixpkgs.lib.nixosSystem {
+          system  = select.node.system;
+          modules = [ cfg ];
+        };
+
+      # DOM
+      nest.prod.system = "x86_64-linux";
+      nest.prod.web    = { is = [ nest.host ]; };
+
+      # Rules
+      nest.rules = [
+        { is = nest.host;
+          nixos.networking.hostName = "web"; }
+      ];
+    });
+}
+```
+
+## Without flake-parts
+
+Use `nixpkgs.lib.evalModules` directly and import `inputs.nest.flakeModule`. The `default` template shows this pattern — your `flake.nix` stays minimal and all config lives in `modules/`.
+
+## Output class naming
+
+The class name is determined by the entity trait's `class` key name:
+
+```nix
+nest.trait.host.class.nixos = …;         # className = "nixos"
+nest.trait.home.class.homeManager = …;   # className = "homeManager"
+nest.trait.server.class.terranix = …;    # className = "terranix"
+```
+
+The first non-null class fn result wins, and its key name becomes the `className` for routing.
+
+<Aside type="note">
+`nest.trait` and `nest.rules` are excluded from the DOM walk. Everything else under `nest.*` is treated as topology.
+</Aside>

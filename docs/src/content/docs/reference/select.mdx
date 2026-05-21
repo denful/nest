@@ -1,0 +1,169 @@
+---
+title: Select API
+description: The select context — node, parentNode, siblings, children, parents, parent, within, and the default filter functor.
+---
+
+The `select` context is available in rule functions, class functions, and `synth`. It provides filtered views of the DOM relative to the current node.
+
+## Accessing select
+
+In a rule function:
+
+```nix
+{
+  is   = nest.host;
+  nixos = { select, host, ... }:
+    let webs = select.siblings nest.web;
+    in { services.haproxy.backends = map (w: w.addr) webs; };
+}
+```
+
+In a class function:
+
+```nix
+nest.trait.host.class.nixos =
+  select: cfg:
+  nixpkgs.lib.nixosSystem {
+    system  = select.node.system;
+    modules = [ cfg ];
+  };
+```
+
+In a `synth`:
+
+```nix
+nest.trait.host.synth = select: {
+  node.userCount = builtins.length (select.children nest.user);
+};
+```
+
+## `select.node`
+
+The current node attrset. Contains all inherited and own attributes plus `name` and any synth-derived attrs:
+
+```nix
+select.node.name    # "web-1"
+select.node.system  # "x86_64-linux"
+select.node.env     # "prod"  (inherited from namespace)
+select.node.addr    # "10.0.0.2"  (own attribute)
+```
+
+## `select.parentNode`
+
+The direct parent DOM node, or `null` if this is a root node. (Namespace containers are not parent nodes — `parentNode` is the nearest ancestor with `is`.)
+
+```nix
+select.parentNode          # the parent node attrset, or null
+select.parentNode.name     # parent's name
+select.parentNode.system   # parent's system attr
+```
+
+## `select` (default functor)
+
+Calling `select sel` filters **all nodes** in the DOM by selector `sel`. Returns a list of matching nodes:
+
+```nix
+select nest.web              # all web-trait nodes
+select nest.admin            # all admin-trait nodes (including marker-only)
+select (nest.attrs { env = "prod"; })  # all prod nodes
+```
+
+This is the primary way to find nodes across the entire DOM from a rule.
+
+## `select.siblings sel`
+
+Filter the **siblings** of the current node — nodes that share the same `__parentPath`. Excludes the current node:
+
+```nix
+select.siblings nest.web     # sibling web nodes
+select.siblings nest.host    # all sibling hosts
+```
+
+Sibling scoping respects namespace boundaries. Nodes under the same namespace (e.g., `prod`) are siblings of each other — `select.siblings` from a prod node never returns staging nodes.
+
+## `select.children sel`
+
+Filter the **direct children** of the current node:
+
+```nix
+select.children nest.user    # direct user children
+select.children nest.host    # direct host children
+```
+
+## `select.parent sel`
+
+Filter the **direct parent** (0 or 1 results) by selector:
+
+```nix
+select.parent nest.host    # parentHost or null
+select.parent "#cluster"   # parent named cluster, or null
+```
+
+## `select.parents sel`
+
+Filter **all ancestors** up to the root by selector:
+
+```nix
+select.parents nest.host   # all ancestor host nodes
+select.parents nest.cluster # all ancestor cluster nodes
+```
+
+## `select.within nd sel`
+
+Filter all **descendants** of DOM node `nd` by selector:
+
+```nix
+select.within hostNode nest.user   # all users under hostNode
+select.within clusterNode nest.web # all web nodes under cluster
+```
+
+Unlike `select.siblings` (which is relative to the current node), `select.within` takes an explicit DOM node as its scope.
+
+## Examples
+
+### haproxy backends from sibling webs
+
+```nix
+{
+  is   = nest.lb;
+  nixos = { select, ... }:
+    let webs = select.siblings nest.web;
+    in {
+      services.haproxy.backends =
+        map (w: "${w.addr}:${toString w.httpPort}") webs;
+    };
+}
+```
+
+### /etc/hosts from all peers
+
+```nix
+{
+  is   = nest.host;
+  nixos = { select, ... }:
+    let peers = select.siblings nest.host;
+    in {
+      networking.extraHosts =
+        lib.concatMapStringsSep "\n" (p: "${p.addr} ${p.name}") peers;
+    };
+}
+```
+
+### Access parent system from child
+
+```nix
+{
+  is   = nest.user;
+  user = { select, user, ... }:
+    let parentHost = builtins.head (select.parent nest.host);
+    in { parentSystem = parentHost.system; };
+}
+```
+
+### Count users on a host
+
+```nix
+nest.trait.host.synth = select: {
+  node.userCount = builtins.length (select.children nest.user);
+};
+```

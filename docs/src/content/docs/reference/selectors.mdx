@@ -1,0 +1,212 @@
+---
+title: Selectors
+description: All selector forms — trait, star, id, name, attr, attrs, or, not, has, within, when, class, child, descendant — with examples.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Selectors determine which nodes a rule or query targets. They can be used as the `is` key in a rule, or passed to `select` functions.
+
+## Selector forms
+
+### Trait reference
+
+Match nodes that have a specific trait in their expanded `is` list:
+
+```nix
+nest.host         # single trait
+nest.admin        # marker trait
+```
+
+### List (AND compound)
+
+A list of selectors — all must match:
+
+```nix
+[ nest.host nest.web ]                       # has both host AND web
+[ nest.host (nest.has nest.admin) ]          # host AND has admin child
+[ nest.host (nest.attrs { env = "prod"; }) ] # host AND env=prod attribute
+```
+
+### String (CSS syntax)
+
+A CSS selector string — parsed at evaluation time:
+
+```nix
+"*"                  # star
+"#lb-prod"           # by name
+".nixos"             # by entity class
+"[env=prod]"         # attribute equality
+"[system]"           # attribute presence
+"web, lb"            # or (comma)
+"prod > web"         # child combinator
+"prod web"           # descendant combinator (space-separated — uses +)
+":not(.staging)"     # negation
+":has(.admin)"       # has child
+":within(.prod)"     # within ancestor
+```
+
+See [CSS Syntax](/reference/css-syntax) for full string selector syntax.
+
+---
+
+## Programmatic constructors
+
+All constructors are available as `nest.<name>` inside rules and the nest module.
+
+### `star`
+
+Matches any node:
+
+```nix
+nest.star
+```
+
+### `attrs { key = val; … }`
+
+Matches nodes where all listed attributes equal their expected values:
+
+```nix
+nest.attrs { env = "prod"; }
+nest.attrs { env = "staging"; system = "aarch64-linux"; }
+```
+
+Uses `builtins.toString` for comparison — works with strings, booleans, and integers.
+
+### `or [ sel … ]`
+
+Matches nodes that satisfy at least one selector in the list:
+
+```nix
+nest.or [ nest.web nest.lb ]
+nest.or [ (nest.attrs { env = "prod"; }) (nest.attrs { env = "staging"; }) ]
+```
+
+### `not sel`
+
+Matches nodes that do NOT match `sel`. `sel` may be a list (which is AND):
+
+```nix
+nest.not nest.staging
+nest.not [ nest.host nest.staging ]
+```
+
+### `has sel`
+
+Matches nodes that have at least one **direct child** matching `sel`:
+
+```nix
+nest.has nest.admin        # host has a child with admin trait
+nest.has nest.user         # node has at least one user child
+```
+
+<Aside type="caution">
+`has` uses the annotation-time child list (from `synthesizeNodes`). It sees trait-synth children but NOT rule-synth children, since rule synth runs after annotation.
+</Aside>
+
+### `within sel`
+
+Matches nodes that have at least one **ancestor** matching `sel`:
+
+```nix
+nest.within nest.host    # node is nested somewhere under a host
+nest.within "prod"       # node is nested under a node named prod
+```
+
+<Aside type="note">
+`within` checks DOM node ancestors — namespace containers are not ancestors. A user node under `nest.prod.web.users.alice` has `web` as its ancestor, not `prod` (which is a namespace).
+</Aside>
+
+### `when fn`
+
+Matches nodes for which `fn` returns true. The function receives the same args as a rule function:
+
+```nix
+nest.when ({ host, ... }: host.httpPort > 1024)
+nest.when ({ select, ... }: select.node.env == "prod")
+nest.when ({ select, ... }: builtins.length (select.children nest.user) > 0)
+```
+
+### `class name`
+
+Matches nodes whose entity trait exposes a class with the given name:
+
+```nix
+nest.class "nixos"       # entity produces nixosSystem output
+nest.class "homeManager" # entity produces homeManager output
+```
+
+### `child parentSel childSel`
+
+Matches nodes that satisfy `childSel` AND whose direct parent satisfies `parentSel`:
+
+```nix
+nest.child nest.cluster nest.web
+nest.child "#prod" nest.host
+```
+
+Equivalent to CSS `prod > web`.
+
+### `descendant ancestorSel descendantSel`
+
+Matches nodes that satisfy `descendantSel` AND have some ancestor satisfying `ancestorSel`:
+
+```nix
+nest.descendant nest.cluster nest.web
+nest.descendant "#prod" nest.host
+```
+
+Equivalent to CSS descendant combinator.
+
+---
+
+## Where selectors are used
+
+### Rule `is` key
+
+```nix
+nest.rules = [
+  { is = nest.host;                   nixos = …; }
+  { is = [ nest.host (nest.has nest.admin) ]; nixos = …; }
+  { is = "*.web";                     nixos = …; }
+];
+```
+
+### `select` filter functions
+
+```nix
+# Inside a rule or synth function:
+select nest.web                    # filter allNodes by nest.web
+select.siblings nest.host          # filter siblings by trait
+select.children nest.user          # filter direct children by trait
+select.parent nest.cluster         # filter direct parent
+select.parents nest.host           # filter all ancestors matching
+select.within clusterNode nest.web # descendants of clusterNode matching
+```
+
+See [Select API](/reference/select) for the full context API.
+
+---
+
+## Matching semantics
+
+A node matches a selector if:
+
+| Selector type | Match condition |
+|---|---|
+| Trait | `__traitName` appears in any item of `node.is` |
+| List | All selectors in the list match |
+| String | Parsed as CSS, then matched |
+| `star` | Always true |
+| `id` / `name` | `node.name == sel.name` |
+| `attr` | `toString node.key == sel.val` |
+| `attrExists` | `node ? key` |
+| `attrs` | All key-value pairs match |
+| `or` | Any selector in list matches |
+| `not` | No selector in list matches |
+| `has` | Any direct child matches inner selector |
+| `within` | Any ancestor matches inner selector |
+| `when` | Predicate function returns true |
+| `class` | Entity trait has a class with this name |
+| `child` | Node matches childSel AND parent matches parentSel |
+| `descendant` | Node matches descendantSel AND some ancestor matches ancestorSel |

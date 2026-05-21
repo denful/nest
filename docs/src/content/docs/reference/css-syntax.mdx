@@ -1,0 +1,167 @@
+---
+title: CSS Syntax
+description: String-based CSS selector syntax supported by Nest — #id, .class, [attr], combinators, and pseudo-classes.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Nest accepts CSS selector strings wherever a selector is expected. They are parsed at evaluation time and matched by the same engine as programmatic selectors.
+
+## Basic tokens
+
+### Star `*`
+
+Matches any node:
+
+```nix
+is = "*"
+```
+
+### ID `#name`
+
+Matches a node by its `name` attribute (the attrset key in the DOM):
+
+```nix
+is = "#lb-prod"    # node named lb-prod
+is = "#web-1"      # node named web-1
+```
+
+### Name (bare word)
+
+Matches by name, same as `#id` but without the `#`:
+
+```nix
+is = "web"         # node named web
+```
+
+### Class `.traitName`
+
+Matches nodes whose entity trait exposes an output class with this name:
+
+```nix
+is = ".nixos"        # entity has nixos output class
+is = ".homeManager"  # entity has homeManager output class
+```
+
+### Attribute `[key=value]`
+
+Matches nodes where `toString node.key == value`:
+
+```nix
+is = "[env=prod]"
+is = "[system=x86_64-linux]"
+```
+
+### Attribute existence `[key]`
+
+Matches nodes that have the attribute, regardless of value:
+
+```nix
+is = "[sshKeys]"
+is = "[httpPort]"
+```
+
+## Compound selectors
+
+Multiple tokens without a combinator — all must match (AND):
+
+```nix
+is = "#lb-prod.nixos"            # named lb-prod AND has nixos class
+is = "[env=prod][system=x86_64-linux]"  # two attribute conditions
+```
+
+## Or (comma)
+
+Comma-separated alternatives — any must match:
+
+```nix
+is = "#web-1, #web-2"
+is = "[env=prod], [env=staging]"
+```
+
+## Child combinator `>`
+
+Matches a node that is a direct child of another:
+
+```nix
+is = "prod > web"    # node named web whose parent is named prod
+is = "cluster > *"   # any direct child of cluster
+```
+
+## Descendant combinator (` + `)
+
+Matches a node descended from another (not necessarily direct child).
+
+<Aside type="caution">
+Nest uses ` + ` (space + plus + space) as the descendant separator, not plain space. This avoids ambiguity with compound selectors.
+</Aside>
+
+```nix
+is = "cluster +web"    # web descended from cluster
+```
+
+## Pseudo-classes
+
+### `:not(sel)`
+
+Matches nodes NOT matching `sel`:
+
+```nix
+is = ":not(#alice)"
+is = ":not([env=staging])"
+```
+
+### `:has(sel)`
+
+Matches nodes that have a direct child matching `sel`:
+
+```nix
+is = ":has(.admin)"
+is = ":has([sshKeys])"
+```
+
+### `:within(sel)`
+
+Matches nodes that have an ancestor matching `sel`:
+
+```nix
+is = ":within(#prod)"
+is = ":within(.nixos)"
+```
+
+## Complete examples
+
+```nix
+# All hosts
+is = ".nixos"
+
+# Hosts named web-1
+is = "#web-1.nixos"
+
+# Prod hosts by attribute
+is = "[env=prod].nixos"
+
+# Either prod or staging
+is = "[env=prod], [env=staging]"
+
+# Hosts with admin children
+is = ".nixos:has(.admin)"
+
+# Web nodes under prod
+is = "prod > .nixos[addr]"
+```
+
+## Parsing
+
+String selectors are parsed by `parseCssSel` which tokenizes via `parseCompound`:
+
+- `#name` → `{ __sel = "id"; name = "…" }`
+- `.class` → `{ __sel = "class"; name = "…" }`
+- `[k=v]` → `{ __sel = "attr"; key = "k"; val = "v" }`
+- `[k]` → `{ __sel = "attrExists"; key = "k" }`
+- `:pseudo(inner)` → `{ __sel = "pseudo"; selector = parsed-inner }`
+- `,` → `{ __sel = "or"; selectors = [ … ] }`
+- ` > ` → `{ __sel = "child"; parentSel = …; childSel = … }`
+- ` + ` → `{ __sel = "descendant"; ancestorSel = …; descendantSel = … }`
+
+Compound (multiple tokens) → list, matched as AND.

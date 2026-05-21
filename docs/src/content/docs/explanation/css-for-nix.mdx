@@ -1,0 +1,86 @@
+---
+title: CSS for Nix
+description: How the CSS selector model maps to NixOS configuration.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+If you know the basics of CSS selectors, you already understand Nest:
+
+| Web | Nest |
+|-----|------|
+| HTML element | Node implementing Traits (host, user, service, …) |
+| CSS class | Nix Configuration class. `.nixos`, `.darwin`, `.homeManager`, or custom |
+| `class="web server"` | Node-Trait binding `prod-front.is = [ web server ]` |
+| Stylesheet rule `.dev { … }` | `nest.rules."user.dev[backend]" = { nixos = …; darwin = …; }` |
+| DOM hierarchy | Custom `nest.*` attrset infrastructure hierarchy |
+| Inherited CSS property | Tree attributes flow down; Node configs flow up |
+| `:has(.admin)` | `"host:has(.admin)"` string selector or Nix DSL |
+| Sibling traversal | Scoped traversal `select.siblings "user[ssh-keys]"` |
+
+## The attrset is the DOM
+
+```nix
+nest.prod.system = "x86_64-linux";
+nest.prod.env    = "prod";
+
+nest.prod.lb  = { is = [ nest.host nest.lb  ]; addr = "10.0.0.1"; };
+nest.prod.web = { is = [ nest.host nest.web ]; addr = "10.0.0.2"; };
+```
+
+`lb` and `web` inherit `system` and `env` from the `prod` tree, just like child elements inherit CSS properties from their parent.
+
+<Aside type="tip">
+The main reason to restructure your DOM is to share attributes. Put nodes under a common tree to give them common properties. Rules apply using selectors regardless of exact location in the tree.
+</Aside>
+
+## Selectors mirror CSS
+
+```nix
+"*"               # any node
+"#lb-prod"        # node named lb-prod
+"lb"              # nodes with lb trait
+".nixos, .darwin" # nodes producing either Nix class configurations
+"[env=prod]"      # attribute equality
+"[system]"        # attribute presence
+":not(staging)"   # negation
+":has(admin)"     # has a child with admin trait
+":within(prod)"   # has an ancestor with prod trait
+"prod > web"      # child combinator
+"prod web"        # descendant combinator
+```
+
+Programmatic Nix DSL forms are equivalent:
+
+```nix
+nest.has nest.admin
+nest.within nest.prod
+nest.not nest.staging
+nest.attrs { env = "prod"; }
+[ nest.host nest.web ]     # AND compound (list)
+```
+
+## Sibling scoping
+
+In CSS, `.prod .web` selects web elements inside prod. Nest's `select.siblings` respects namespace boundaries the same way:
+
+```nix
+nest.rules.lb = { # match nodes with "lb" trait
+  nixos = select: {
+    services.haproxy.backends = select.siblings nest.web; # same tree scoped
+  };
+}
+```
+
+A prod load balancer only sees prod web servers. Staging LB only sees staging web servers. The parent node is the scope boundary, same as CSS containment.
+
+## Multiple rules, one node
+
+Multiple rules can match the same node — their contributions are collected and merged, just like multiple CSS rules applying to one element:
+
+```nix
+rules."host.nixos" { nixos.system.stateVersion = "25.11"; }
+rules.nginx { nixos.services.nginx.enable = true;  }
+```
+
+A node with both `host` and `nginx` traits receives both as NixOS modules. The module system merges them with full priority semantics.

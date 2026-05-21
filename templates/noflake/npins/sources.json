@@ -1,0 +1,56 @@
+{
+  "pins": {
+    "import-tree": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "vic",
+        "repo": "import-tree"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.2.0",
+      "revision": "d321337efd0f23a9eb14a42adb7b2c29313ab274",
+      "url": "https://api.github.com/repos/vic/import-tree/tarball/refs/tags/v0.2.0",
+      "hash": "sha256-Jjuz5CmSkur8KvLDoGa+vylEp+RkQtv4mt/qcMznpH0="
+    },
+    "nest": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "denful",
+        "repo": "nest"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "d55b5fb4972d7141266c0e772370a95c0c6fdb17",
+      "url": "https://github.com/denful/nest/archive/d55b5fb4972d7141266c0e772370a95c0c6fdb17.tar.gz",
+      "hash": "sha256-75OwnDdHbb2qWxdaJ9ldODLLwmLcZfZXeeIl+d83A8A="
+    },
+    "nixpkgs": {
+      "type": "Channel",
+      "name": "nixpkgs-unstable",
+      "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre1002810.4a29d733e8a7/nixexprs.tar.xz",
+      "hash": "sha256-uY1HXtHXk0Iyc46ZLcMbFni73h0m9cO/Je/krbOF6CI="
+    },
+    "with-inputs": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "denful",
+        "repo": "with-inputs"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "0.4.0",
+      "revision": "e22ea328948d861a7403d9a85ca3b1ad80919914",
+      "url": "https://api.github.com/repos/denful/with-inputs/tarball/refs/tags/0.4.0",
+      "hash": "sha256-+5PhPac62BQglTB8yGBC9LLxBV1jCkpSLMH//Cx+W3I="
+    }
+  },
+  "version": 7
+}
