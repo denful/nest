@@ -25,6 +25,7 @@ let
           name = key;
           __path = path;
           __parentPath = parentPath;
+          is = if builtins.isList val.is then val.is else [ val.is ];
         };
       children = walkDom path path (mergeAttrs inheritedAttrs val) val;
     in
@@ -39,7 +40,14 @@ let
       in
       if !builtins.isAttrs val then
         acc
-      else if val ? is && builtins.isList val.is then
+      else if
+        val ? is
+        && (
+          builtins.isList val.is
+          || builtins.isString val.is
+          || (builtins.isAttrs val.is && (val.is ? __sel || val.is ? __path))
+        )
+      then
         acc ++ makeNode pathPrefix parentPath inheritedAttrs key val
       else
         let

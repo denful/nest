@@ -168,6 +168,39 @@ in
       expected = true;
     };
 
+    # is = can take a CSS name selector string instead of a trait ref
+    test-is-css-name-selector = {
+      expr = builtins.any (t: t.__path == [ "server" ]) (expandTraits processedTraits [ "server" ] [ ]);
+      expected = true;
+    };
+
+    # is = can take a CSS child combinator selector to select a nested trait
+    test-is-css-child-selector = {
+      expr = builtins.any (
+        t:
+        t.__path == [
+          "monitoring"
+          "node-exporter"
+        ]
+      ) (expandTraits processedTraits [ "monitoring > node-exporter" ] [ ]);
+      expected = true;
+    };
+
+    # is = can take a Nix DSL selector ({ __sel = ... })
+    test-is-nix-dsl-selector = {
+      expr = builtins.any (t: t.__path == [ "server" ]) (
+        expandTraits processedTraits
+          [
+            {
+              __sel = "name";
+              name = "server";
+            }
+          ]
+          [ ]
+      );
+      expected = true;
+    };
+
     # flattenTraitTree: returns all traits including nested
     test-flatten-trait-tree = {
       expr =

@@ -73,7 +73,7 @@ let
 
   expandTraits =
     processedTraits: traitList: allNodes:
-    expandTraitsRec processedTraits allNodes [ ] traitList;
+    expandTraitsRec processedTraits allNodes [ ] (resolveTraitRefs processedTraits traitList);
 in
 {
   inherit

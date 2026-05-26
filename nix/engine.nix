@@ -5,8 +5,9 @@ let
     let
       expandedIs = nest.expandTraits traits n.is rawNodes;
       fullIs = nest.expandNeededBy traits expandedIs (builtins.removeAttrs n [ "is" ]) rawNodes;
+      finalIs = nest.expandTraits traits fullIs rawNodes;
     in
-    n // { is = fullIs; };
+    n // { is = finalIs; };
 
   annotateNode =
     rules: synthesizedNodes: node:

@@ -14,12 +14,12 @@ in
       description = "nest CSS-for-Nix configuration";
       default = { };
       type = lib.types.submodule {
-        freeformType = lib.types.attrsOf lib.types.anything;
+        freeformType = lib.types.lazyAttrsOf lib.types.unspecified;
         options = {
           trait = lib.mkOption {
             description = "Trait definitions (entity-type or marker)";
             default = { };
-            type = lib.types.attrsOf lib.types.raw;
+            type = lib.types.lazyAttrsOf lib.types.unspecified;
           };
           rules = lib.mkOption {
             description = "CSS rule list or attrset: [{ is = sel; cfg; }] or { \"sel\" = { cfg; }; }";
@@ -50,18 +50,14 @@ in
     # via a compat module (see tests/flakeModule.nix).
     # raw: evalResult contains Nix functions/thunks that must not be type-traversed
     flake.nest = lib.mkOption {
-      default = { };
+      default = {
+        inherit evalResult nestCfg processedTraits;
+        lib = nestLib;
+      };
       type = lib.types.raw;
+      readOnly = true;
     };
   };
 
-  config = {
-    # Pass nest proxy as module arg: nest = processedTraits // selectorConstructors
-    _module.args.nest = nestProxy;
-
-    flake.nest = {
-      inherit evalResult nestCfg processedTraits;
-      lib = nestLib;
-    };
-  };
+  config._module.args.nest = nestProxy;
 }

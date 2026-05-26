@@ -191,5 +191,79 @@ in
       expected = true;
     };
 
+    test-traits-span-modules = {
+      # Top-level trait values should merge across separate modules
+      expr =
+        (evalWithModule [
+          (
+            { nest, ... }:
+            {
+              nest.trait.host.class.nixos = _: modules: { cfg = builtins.foldl' (a: b: a // b) { } modules; };
+              nest.prod.igloo = {
+                is = [
+                  nest.host
+                  nest.web
+                ];
+                system = "x86_64-linux";
+              };
+              nest.trait.nginx = { };
+              nest.rules = [
+                {
+                  is = nest.nginx;
+                  nixos.nginx = true;
+                }
+              ];
+            }
+          )
+          (_: {
+            nest.trait.web = { };
+          })
+          (
+            { nest, ... }:
+            {
+              nest.trait.web.needs = [ nest.nginx ];
+            }
+          )
+        ]).nixosConfigurations.igloo.cfg.nginx;
+      expected = true;
+    };
+
+    test-nested-traits-span-modules = {
+      # Nested trait values should merge across separate modules
+      expr =
+        (evalWithModule [
+          (
+            { nest, ... }:
+            {
+              nest.trait.host.class.nixos = _: modules: { cfg = builtins.foldl' (a: b: a // b) { } modules; };
+              nest.prod.igloo = {
+                is = [
+                  nest.host
+                  nest.server
+                ];
+                system = "x86_64-linux";
+              };
+              nest.trait.server = { };
+              nest.rules = [
+                {
+                  is = nest.monitoring.nodeExporter;
+                  nixos.nodeExporter = true;
+                }
+              ];
+            }
+          )
+          (_: {
+            nest.trait.monitoring.nodeExporter = { };
+          })
+          (
+            { nest, ... }:
+            {
+              nest.trait.monitoring.nodeExporter.neededBy = nest.server;
+            }
+          )
+        ]).nixosConfigurations.igloo.cfg.nodeExporter;
+      expected = true;
+    };
+
   };
 }

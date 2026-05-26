@@ -255,6 +255,42 @@ in
       }
     );
 
+    # neededBy traits with needs should still expand their dependencies
+    test-neededby-expands-needs = nestTest (
+      { nest, web, ... }:
+      let
+        t = nest;
+      in
+      {
+        nest.trait.host.class.nixos = _select: modules: nest.testMerge modules;
+        nest.trait.server = { };
+        nest.trait.niri = { };
+        nest.trait.foo = {
+          needs = [ t.niri ];
+          neededBy = t.server;
+        };
+        nest.prod.web = {
+          is = [
+            t.host
+            t.server
+          ];
+          system = "x86_64-linux";
+        };
+        nest.rules = [
+          {
+            is = t.host;
+            nixos =
+              { select, ... }:
+              {
+                niriPresent = builtins.elem t.niri select.node.is;
+              };
+          }
+        ];
+        expr = web.niriPresent;
+        expected = true;
+      }
+    );
+
     # has/within selectors; class fns use select.node
     test-has-selector = nestTest (
       { nest, web, ... }:
@@ -907,6 +943,126 @@ in
         };
         expr = web.services.sshd.enable;
         expected = true;
+      }
+    );
+
+    # nested DOM node: is = [ "user" ] (list with CSS name selector)
+    test-nested-node-is-list-css-selector = nestTest (
+      { nest, web, ... }:
+      {
+        nest.trait.host.class.nixos = _select: modules: nest.testMerge modules;
+        nest.trait.user.class = {
+          nixos = _select: modules: { nixos = modules; };
+          user = select: modules: {
+            nixos = [ { users.users.${select.node.name} = nest.testMerge modules; } ];
+          };
+        };
+        nest.prod.web = {
+          is = [ nest.host ];
+          system = "x86_64-linux";
+          users.vic = {
+            is = [ "user" ];
+          };
+        };
+        nest.rules = with nest; [
+          {
+            is = user;
+            nixos.users.users.vic.description = "vic";
+          }
+        ];
+        expr = web.users.users.vic.description;
+        expected = "vic";
+      }
+    );
+
+    # nested DOM node: is = "user" (bare CSS string, not a list)
+    test-nested-node-is-bare-css-selector = nestTest (
+      { nest, web, ... }:
+      {
+        nest.trait.host.class.nixos = _select: modules: nest.testMerge modules;
+        nest.trait.user.class = {
+          nixos = _select: modules: { nixos = modules; };
+          user = select: modules: {
+            nixos = [ { users.users.${select.node.name} = nest.testMerge modules; } ];
+          };
+        };
+        nest.prod.web = {
+          is = [ nest.host ];
+          system = "x86_64-linux";
+          users.vic = {
+            is = "user";
+          };
+        };
+        nest.rules = with nest; [
+          {
+            is = user;
+            nixos.users.users.vic.description = "vic";
+          }
+        ];
+        expr = web.users.users.vic.description;
+        expected = "vic";
+      }
+    );
+
+    # mirrors vtx dom.nix: both top-level and nested nodes use bare CSS string is
+    test-vtx-dom-bare-is-both-levels = nestTest (
+      { nest, bilbo, ... }:
+      {
+        nest.trait.host.class.nixos = _select: modules: nest.testMerge modules;
+        nest.trait.user.class = {
+          nixos = _select: modules: { nixos = modules; };
+          user = select: modules: {
+            nixos = [ { users.users.${select.node.name} = nest.testMerge modules; } ];
+          };
+        };
+        nest.bilbo = {
+          is = "host";
+          system = "x86_64-linux";
+          vic = {
+            is = "user";
+          };
+        };
+        nest.rules = with nest; [
+          {
+            is = user;
+            nixos.users.users.vic.description = "vic-on-bilbo";
+          }
+        ];
+        expr = bilbo.users.users.vic.description;
+        expected = "vic-on-bilbo";
+      }
+    );
+
+    # neededBy with descendant selector on nodes whose is= uses bare CSS strings
+    # mirrors vtx: vic-user.neededBy = "host user#vic" (descendant combinator)
+    test-neededby-descendant-selector-bare-is = nestTest (
+      { nest, bilbo, ... }:
+      {
+        nest.trait.host.class.nixos = _select: modules: nest.testMerge modules;
+        nest.trait.user.class = {
+          nixos = _select: modules: { nixos = modules; };
+          user = select: modules: {
+            nixos = [ { users.users.${select.node.name} = nest.testMerge modules; } ];
+          };
+        };
+        nest.trait.admin = {
+          neededBy = "host user#vic";
+        };
+        nest.bilbo = {
+          is = "host";
+          system = "x86_64-linux";
+          vic = {
+            is = "user";
+          };
+        };
+        nest.rules = with nest; [
+          {
+            is = admin;
+            user.extraGroups = [ "wheel" ];
+          }
+        ];
+        expr = bilbo.users.users.vic.extraGroups;
+        expected = [ "wheel" ];
       }
     );
 
