@@ -1,8 +1,5 @@
 nest:
 let
-  simple = import ./selector-match-simple-handlers.nix nest;
-  hierarchy = import ./selector-match-hierarchy-handlers.nix nest;
-
   matchesSel =
     node: sel: ctx:
     let
@@ -29,25 +26,25 @@ let
       handlers = {
         star = true;
         id = node.name == sel.name;
-        name = node.name == sel.name || builtins.any (t: simple.matchesTraitName sel.name t) node.is;
+        name = node.name == sel.name || builtins.any (t: nest.matchesTraitName sel.name t) node.is;
         attr = matchesAttrValue sel.key sel.val;
         attrExists = node ? ${sel.key};
         attrs = builtins.all (k: (node ? ${k}) && node.${k} == sel.attrs.${k}) (
           builtins.attrNames sel.attrs
         );
         or = builtins.any (x: nest.matchesOne node x ctx) sel.selectors;
-        not = simple.handleNot node sel ctx;
+        not = nest.handleNot node sel ctx;
         is = builtins.any (x: nest.matchesOne node x ctx) (
           if builtins.isList sel.selector then sel.selector else [ sel.selector ]
         );
         current = true;
-        has = simple.handleHas node sel ctx;
-        within = simple.handleWithin node sel ctx;
+        has = nest.handleHas node sel ctx;
+        within = nest.handleWithin node sel ctx;
         when = nest.callWithArgs sel.fn node ctx;
-        class = simple.handleClass node sel ctx;
-        child = hierarchy.handleChild node sel ctx;
-        descendant = hierarchy.handleDescendant node sel ctx;
-        adjacent = hierarchy.handleAdjacent node sel ctx;
+        class = nest.handleClass node sel ctx;
+        child = nest.handleChild node sel ctx;
+        descendant = nest.handleDescendant node sel ctx;
+        adjacent = nest.handleAdjacent node sel ctx;
       };
     in
     handlers.${sel.__sel} or false;

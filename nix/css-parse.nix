@@ -1,8 +1,5 @@
 nest:
 let
-  atoms = import ./css-parse-atoms.nix nest;
-  complex = import ./css-parse-complex.nix nest;
-
   len = builtins.length;
   splitOn = pat: str: builtins.filter builtins.isString (builtins.split pat str);
   trim =
@@ -22,21 +19,21 @@ let
         rest = builtins.substring 1 (-1) str;
       in
       if c == "*" then
-        atoms.parseStar rest self
+        nest.parseStar rest self
       else if c == "#" then
-        atoms.parseId str self
+        nest.parseId str self
       else if c == "." then
-        atoms.parseClass str self
+        nest.parseClass str self
       else if c == "&" then
-        atoms.parseCurrent str self
+        nest.parseCurrent str self
       else if c == "(" then
-        complex.parseParen str self
+        nest.parseParen str self
       else if c == "[" then
-        complex.parseAttr str self
+        nest.parseAttr str self
       else if c == ":" then
-        complex.parsePseudo str self
+        nest.parsePseudo str self
       else
-        atoms.parseName str self;
+        nest.parseName str self;
 in
 {
   inherit len splitOn trim;
