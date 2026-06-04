@@ -1,9 +1,12 @@
-# Trait definitions: entity-type traits (have class fns); marker traits = { }.
+# Trait definitions for fleet-demo.
+# Two kinds: entity traits (have class = output fn) and marker traits (= {}).
 #
-# Topology:
-#   lb.needs = server → nginx + ssh + firewall
-#   web.needs = server → nginx + ssh + firewall
-#   monitoring.neededBy = server  (auto-injects on every server node)
+# needs/neededBy dependency graph:
+#   lb ──needs──> server ──needs──> nginx, ssh, firewall
+#   web ─needs──> server (same)
+#   monitoring ──neededBy──> server  (inverse: auto-injects into every server node)
+#
+# So declaring `is = [nest.lb]` on a node silently adds nginx+ssh+firewall+monitoring.
 {
   inputs,
   nest,
@@ -11,10 +14,8 @@
   ...
 }:
 {
-  # Entity-type traits
-  #
-  # host: passes the full list of NixOS module contributions to nixosSystem.
-  # The module system merges them — nest does not deep-merge.
+  # host: entity trait. class.nixos receives collected module list → calls nixosSystem.
+  # The `system` attr comes from the namespace (dom.nix nest.prod.system).
   nest.trait.host.class.nixos =
     { node, ... }:
     modules:
@@ -23,12 +24,12 @@
       inherit modules;
     };
 
-  # user: Forward collects user-attr contributions as NixOS module fragments.
-  # Each user child contributes one { users.users.<name> = …; } module to parent.
+  # user: dual-class trait.
+  # class.nixos = pass-through so a user node's nixos contributions reach its host.
+  # class.user = wraps attrs into a users.users.<name> NixOS module fragment,
+  #   which the host's nixos class then merges into the system.
   nest.trait.user.class = {
-    # Pass-through: user's own nixos contributions propagate to parent list.
     nixos = _select: modules: { nixos = modules; };
-    # Produce a NixOS module fragment for the parent host's users.users.<name>.
     user =
       { node, ... }:
       modules: {
@@ -40,27 +41,28 @@
       };
   };
 
-  # Service Marker traits
+  # Marker traits: no class → no output. Used only for selector matching.
   nest.trait.nginx = { };
   nest.trait.ssh = { };
   nest.trait.firewall = { };
 
-  # server = nginx + ssh + firewall
+  # needs: transitive. Any node with nest.server gets nginx+ssh+firewall added.
   nest.trait.server.needs = [
     nest.nginx
     nest.ssh
     nest.firewall
   ];
 
-  # lb and web both imply server
+  # lb/web declare needs=[server]; server's own needs chain transitively.
   nest.trait.lb.needs = [ nest.server ];
   nest.trait.web.needs = [ nest.server ];
 
-  # monitoring auto-injects on every server node (neededBy)
+  # neededBy = server: inverse of needs. monitoring auto-attaches to every
+  # node that carries nest.server — no explicit declaration in dom.nix needed.
   nest.trait.monitoring = { };
   nest.trait.monitoring.neededBy = nest.server;
 
-  # Role marker traits for users
+  # Role markers: classless, used only by select in rules.nix synth blocks.
   nest.trait.admin = { };
   nest.trait.deploy = { };
 }

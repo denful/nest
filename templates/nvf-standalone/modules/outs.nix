@@ -1,3 +1,5 @@
+# Exposes nest's evalResult.byClass.nvf as flake.packages.x86_64-linux.
+# byClass.nvf = { minimal = <pkg>; full = <pkg>; } — keyed by node name.
 {
   config,
   lib,
@@ -6,7 +8,7 @@
 }:
 let
   result = config.flake.nest.evalResult;
-  nvfPkgs = result.byClass.nvf or { };
+  nvfPkgs = result.byClass.nvf or { }; # packages produced by vim.class.nvf
 in
 {
   imports = [ inputs.nest.flakeModule ];

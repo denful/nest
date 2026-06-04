@@ -1,3 +1,5 @@
+# Exposes nest's evalResult.byClass.terranix as flake.packages.x86_64-linux.
+# byClass.terranix = { web-1 = <drv>; web-2 = <drv>; } — one config per node.
 {
   config,
   lib,
@@ -6,7 +8,7 @@
 }:
 let
   result = config.flake.nest.evalResult;
-  terranixPkgs = result.byClass.terranix or { };
+  terranixPkgs = result.byClass.terranix or { }; # terranix derivations by node name
 in
 {
   imports = [ inputs.nest.flakeModule ];

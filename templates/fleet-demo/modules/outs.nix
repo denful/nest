@@ -1,3 +1,4 @@
+# Exposes nest's evalResult.byClass.nixos as flake.nixosConfigurations.
 {
   config,
   lib,

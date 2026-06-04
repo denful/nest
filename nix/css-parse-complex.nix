@@ -1,8 +1,4 @@
-nest:
-let
-  splitOn = pat: str: builtins.filter builtins.isString (builtins.split pat str);
-in
-{
+nest: {
   parseParen =
     str: self:
     let
@@ -15,10 +11,10 @@ in
     let
       len = builtins.length;
       rest = builtins.substring 1 (-1) str;
-      attrParts = splitOn "]" rest;
+      attrParts = nest.splitOn "]" rest;
       inner = builtins.elemAt attrParts 0;
       after = if len attrParts > 1 then builtins.elemAt attrParts 1 else "";
-      eqParts = splitOn "=" inner;
+      eqParts = nest.splitOn "=" inner;
     in
     if len eqParts > 1 then
       [

@@ -79,7 +79,6 @@ in
   inherit
     hasPath
     traverseNamedTraits
-    resolveTraitRefs
     nodeHasSelectedTrait
     expandTraits
     ;

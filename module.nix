@@ -22,22 +22,15 @@ in
             type = lib.types.lazyAttrsOf lib.types.unspecified;
           };
           rules = lib.mkOption {
-            description = "CSS rule list or attrset: [{ is = sel; cfg; }] or { \"sel\" = { cfg; }; }";
+            description = "Rules: list [{ is = sel; cfg; }], selector-keyed { \"sel\" = { cfg; }; }, or label-keyed { name = { is = sel; cfg; }; }";
             default = [ ];
             # raw: preserves functionArgs metadata needed by callWithArgs
             type = lib.types.mkOptionType {
               name = "nestRules";
               description = "list or attrset of nest rules";
               check = v: builtins.isList v || builtins.isAttrs v;
-              merge =
-                _loc: defs:
-                builtins.concatMap (
-                  def:
-                  if builtins.isList def.value then
-                    def.value
-                  else
-                    map (k: { is = k; } // def.value.${k}) (builtins.attrNames def.value)
-                ) defs;
+              # label-keyed attrsets (value has `is`) merge across import-tree files
+              merge = _loc: defs: builtins.concatMap (def: nestLib.normalizeRules def.value) defs;
             };
           };
         };

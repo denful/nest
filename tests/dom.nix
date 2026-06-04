@@ -199,5 +199,32 @@ in
         builtins.length (ctx.select.children t.user);
       expected = 1; # prod2.web-1.users.alice
     };
+
+    # Deep namespace nesting: when ALL ancestors are wrappers (no `is`),
+    # the node is a root — __parentPath is null, __path keeps every level.
+    test-deep-namespace-parent-is-root = {
+      expr =
+        let
+          ns = traverseDom {
+            region.us.prod.web = {
+              is = [ t.host ];
+              system = "x86_64-linux";
+            };
+          };
+          web = builtins.head ns;
+        in
+        {
+          inherit (web) __path __parentPath;
+        };
+      expected = {
+        __path = [
+          "region"
+          "us"
+          "prod"
+          "web"
+        ];
+        __parentPath = null;
+      };
+    };
   };
 }

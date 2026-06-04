@@ -333,6 +333,41 @@ in
         matchesOne node "[foo=false]" ctx;
       expected = false;
     };
+    # list/attrs node values never match a boolean attr selector
+    # (guards the matchesAttrValue simplification: elem on a list/attrs is false)
+    test-css-attr-true-no-match-list = {
+      expr =
+        let
+          node = makeNode "x" [ ] {
+            foo = [
+              1
+              2
+            ];
+          };
+        in
+        matchesOne node "[foo=true]" (emptyCtx node [ node ]);
+      expected = false;
+    };
+    test-css-attr-true-no-match-attrs = {
+      expr =
+        let
+          node = makeNode "x" [ ] {
+            foo = {
+              a = 1;
+            };
+          };
+        in
+        matchesOne node "[foo=true]" (emptyCtx node [ node ]);
+      expected = false;
+    };
+    test-css-attr-false-no-match-list = {
+      expr =
+        let
+          node = makeNode "x" [ ] { foo = [ ]; };
+        in
+        matchesOne node "[foo=false]" (emptyCtx node [ node ]);
+      expected = false;
+    };
     test-css-attr-true-match-1-int = {
       expr =
         let

@@ -8,16 +8,12 @@ let
         if !(node ? ${key}) then
           false
         else if val == "true" then
-          (builtins.isAttrs node.${key} && false)
-          || (builtins.isList node.${key} && false)
-          || builtins.elem node.${key} [
+          builtins.elem node.${key} [
             true
             "true"
           ]
         else if val == "false" then
-          (builtins.isAttrs node.${key} && false)
-          || (builtins.isList node.${key} && false)
-          || builtins.elem node.${key} [
+          builtins.elem node.${key} [
             false
             "false"
           ]

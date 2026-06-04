@@ -929,6 +929,27 @@ in
       }
     );
 
+    # label-keyed attrset rule: the key is an arbitrary label, the selector
+    # lives in `is`. (This is what lets rules split across import-tree files —
+    # distinct labels merge where list defs would not.) The label "anyLabel"
+    # must NOT act as a selector, or web (name "web") would not match.
+    test-attrset-rule-label-is = nestTest (
+      { nest, web, ... }:
+      {
+        nest.trait.host.class.nixos = _select: modules: nest.testMerge modules;
+        nest.prod.web = {
+          is = [ nest.host ];
+          system = "x86_64-linux";
+        };
+        nest.rules.anyLabel = {
+          is = nest.host;
+          nixos.tagged = true;
+        };
+        expr = web.tagged;
+        expected = true;
+      }
+    );
+
     # attrset rules: mix list and attrset in evalNest (not module system — direct attrset only)
     test-attrset-rule-id-sel = nestTest (
       { nest, web, ... }:

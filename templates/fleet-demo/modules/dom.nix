@@ -1,17 +1,20 @@
-# Fleet topology: two environments, four hosts, policy-driven user access.
+# ════════════════════════════════════════════════════════════
+# nest template — FLEET-DEMO
 #
-# DOM namespace = environment:
-#   nest.prod.*    — prod hosts (lb-prod, web-prod-1, web-prod-2)
-#   nest.staging.* — staging hosts (web-staging)
-#
-# select.siblings from any host returns peers in same environment only.
-# This is akin to Den's pipe.collect scope boundary.
-#
-# Users:
-#   alice (admin)  — all hosts in prod + staging
-#   bob   (deploy) — staging only
+# Demonstrates: multi-host topology via NAMESPACES (prod/staging as
+#   namespace wrappers, not nodes); needs/neededBy trait dependency
+#   graph; select.siblings scoped to the enclosing namespace; classless
+#   marker traits for user-registry nodes.
+# Pick this when: managing multiple NixOS hosts across environments.
+# Read order: dom.nix → traits.nix → rules.nix → outs.nix
+# See also: ../default (single host, simpler starting point),
+#           ../minimal (bare minimum, no traits/rules)
+# ════════════════════════════════════════════════════════════
 { nest, ... }:
 {
+  # nest.prod and nest.staging are NAMESPACES, not nodes — no `is`.
+  # Scalar attrs set here (system, env) are inherited by every child node.
+  # select.siblings inside a prod node returns only other prod children.
   nest.prod.system = "x86_64-linux";
   nest.prod.env = "prod";
 
@@ -19,10 +22,11 @@
   nest.staging.env = "staging";
 
   # prod: load balancer + two web servers
+  # nest.lb implies nest.server (via needs) → nginx + ssh + firewall auto-added.
   nest.prod.lb-prod = {
     is = [
       nest.host
-      nest.lb
+      nest.lb # needs = [server] → needs = [nginx ssh firewall]
     ];
     addr = "10.0.1.1";
     httpPort = 80;
@@ -30,7 +34,7 @@
   nest.prod.web-prod-1 = {
     is = [
       nest.host
-      nest.web
+      nest.web # needs = [server] same chain
     ];
     addr = "10.0.1.10";
     httpPort = 80;
@@ -44,7 +48,8 @@
     httpPort = 80;
   };
 
-  # staging: single web server
+  # staging namespace: siblings scope stops at namespace boundary.
+  # web-staging's select.siblings never sees prod hosts.
   nest.staging.web-staging = {
     is = [
       nest.host
@@ -54,9 +59,10 @@
     httpPort = 80;
   };
 
-  # User registry: marker traits only — no class needed.
-  # traverseDom includes any node with `is = [...]`; select can find them.
-  # processNode returns null for classless nodes so they never reach nixosConfigurations.
+  # User registry: marker traits only — no class, so no output produced.
+  # nest.admin / nest.deploy are classless; traverseDom still visits them
+  # so select nest.admin can find alice from any rule. Rules synth these
+  # into virtual children under host nodes (see rules.nix).
   nest.users.alice = {
     is = [ nest.admin ];
     sshKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyAlice alice@workstation" ];

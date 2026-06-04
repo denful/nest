@@ -1,5 +1,22 @@
 nest:
 let
+  # Rules may be a list [{ is = sel; cfg; }] or an attrset. Attrset entries
+  # come in two forms: selector-keyed ({ "host" = { cfg }; }) or label-keyed
+  # with an explicit `is` ({ hostDefaults = { is = nest.host; cfg }; }). The
+  # label form lets rules split across import-tree files (distinct keys merge).
+  normalizeRules =
+    rawRules:
+    if builtins.isList rawRules then
+      rawRules
+    else
+      map (
+        k:
+        let
+          v = rawRules.${k};
+        in
+        if v ? is then v else { is = k; } // v
+      ) (builtins.attrNames rawRules);
+
   expandNode =
     traits: rawNodes: n:
     let
@@ -40,11 +57,7 @@ let
     let
       traits = nest.injectNames (nestCfg.trait or { });
       rawRules = nestCfg.rules or [ ];
-      rules =
-        if builtins.isList rawRules then
-          rawRules
-        else
-          map (k: { is = k; } // rawRules.${k}) (builtins.attrNames rawRules);
+      rules = normalizeRules rawRules;
       rawNodes = nest.traverseDom (
         builtins.removeAttrs nestCfg [
           "trait"
@@ -70,5 +83,5 @@ let
     };
 in
 {
-  inherit evalNest;
+  inherit evalNest normalizeRules;
 }

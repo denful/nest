@@ -1,3 +1,4 @@
+# flake-parts module: wires nest's byClass.devshell into perSystem.devshells.
 {
   config,
   inputs,
@@ -5,7 +6,7 @@
 }:
 let
   result = config.flake.nest.evalResult;
-  devshellCfgs = result.byClass.devshell or { };
+  devshellCfgs = result.byClass.devshell or { }; # keyed by node name, e.g. { default = {...}; }
 in
 {
   imports = [

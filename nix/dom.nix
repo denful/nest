@@ -1,3 +1,9 @@
+# traverseDom flattens the nested DOM attrset into a flat node list.
+# A key is a NODE when its value carries `is` (a selector/trait list);
+# a value without `is` is a NAMESPACE wrapper: it organizes the tree and
+# its scalar attrs inherit downward, but it is not itself a node.
+# __path = full key path; __parentPath = nearest ancestor *node* path
+# (namespace wrappers are skipped), or null at the root.
 _nest:
 let
   mkPath = prefix: key: prefix ++ [ key ];
@@ -38,6 +44,7 @@ let
       let
         val = attrset.${key};
       in
+      # leaf attr → skip; node (`is`) → emit; namespace → recurse, no node
       if !builtins.isAttrs val then
         acc
       else if
