@@ -83,5 +83,5 @@ let
     };
 in
 {
-  inherit evalNest normalizeRules;
+  inherit evalNest normalizeRules annotateNode;
 }

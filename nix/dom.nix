@@ -37,6 +37,15 @@ let
     in
     [ node ] ++ children;
 
+  isNode =
+    val:
+    val ? is
+    && (
+      builtins.isList val.is
+      || builtins.isString val.is
+      || (builtins.isAttrs val.is && (val.is ? __sel || val.is ? __path))
+    );
+
   walkDom =
     pathPrefix: parentPath: inheritedAttrs: attrset:
     builtins.foldl' (
@@ -47,14 +56,7 @@ let
       # leaf attr → skip; node (`is`) → emit; namespace → recurse, no node
       if !builtins.isAttrs val then
         acc
-      else if
-        val ? is
-        && (
-          builtins.isList val.is
-          || builtins.isString val.is
-          || (builtins.isAttrs val.is && (val.is ? __sel || val.is ? __path))
-        )
-      then
+      else if isNode val then
         acc ++ makeNode pathPrefix parentPath inheritedAttrs key val
       else
         let

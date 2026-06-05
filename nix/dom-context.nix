@@ -30,6 +30,10 @@ let
 
   mkFilter = list: sel: builtins.filter (n: nest.matchesOne n sel (nest.mkCtx n list)) list;
 
+  mkParentSel =
+    parentNode:
+    if parentNode == null then _: null else sel: firstMatch (_: true) (mkFilter [ parentNode ] sel);
+
   mkCtx =
     node: allNodes:
     let
@@ -41,15 +45,7 @@ let
         n: n.__parentPath == node.__parentPath && n.__path != node.__path
       ) allNodes;
       parentNode = if ancestors == [ ] then null else builtins.head ancestors;
-      parentSel =
-        if parentNode == null then
-          _: null
-        else
-          sel:
-          let
-            p = mkFilter [ parentNode ] sel;
-          in
-          if p == [ ] then null else builtins.head p;
+      parentSel = mkParentSel parentNode;
     in
     {
       inherit

@@ -4,32 +4,29 @@ let
 
   hasPath = item: list: builtins.any (x: x ? __path && x.__path == item.__path) list;
 
-  traverseNamedTraits =
-    tree:
-    let
-      go =
-        parentPath: attrs:
-        builtins.concatLists (
-          map (
-            k:
-            let
-              v = attrs.${k};
-            in
-            if builtins.isAttrs v && v ? __path then
-              [
-                {
-                  key = k;
-                  value = v;
-                  inherit parentPath;
-                }
-              ]
-              ++ go v.__path (builtins.removeAttrs v nest.traitSpecialKeys)
-            else
-              [ ]
-          ) (builtins.attrNames attrs)
-        );
-    in
-    go null tree;
+  namedTraitsFrom =
+    parentPath: attrs:
+    builtins.concatLists (
+      map (
+        k:
+        let
+          v = attrs.${k};
+        in
+        if builtins.isAttrs v && v ? __path then
+          [
+            {
+              key = k;
+              value = v;
+              inherit parentPath;
+            }
+          ]
+          ++ namedTraitsFrom v.__path (builtins.removeAttrs v nest.traitSpecialKeys)
+        else
+          [ ]
+      ) (builtins.attrNames attrs)
+    );
+
+  traverseNamedTraits = namedTraitsFrom null;
 
   resolveTraitRefs =
     processedTraits: expr:

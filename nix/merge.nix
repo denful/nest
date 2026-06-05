@@ -39,7 +39,7 @@ let
       // builtins.listToAttrs (
         map (k: {
           name = k;
-          value = if builtins.elem k (builtins.attrNames a) then nest.deepMerge a.${k} b.${k} else b.${k};
+          value = if a ? ${k} then nest.deepMerge a.${k} b.${k} else b.${k};
         }) (builtins.attrNames b)
       );
 in

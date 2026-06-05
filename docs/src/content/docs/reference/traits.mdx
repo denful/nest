@@ -48,6 +48,24 @@ The first non-null class function result determines which `byClass` bucket the o
 Nodes without any class trait produce no output. They are still valid DOM nodes, visible to `select`, and can be found by selectors.
 </Aside>
 
+## Nested traits
+
+Traits can be **nested** under other traits. The nesting becomes the trait's
+path, and it is referenced by that path:
+
+```nix
+# a `user` trait scoped under `host`
+nest.trait.host.user.class.user = select: modules: { /* … */ };
+
+# in the DOM / rules, reference it by path:
+is = nest.host.user;
+```
+
+A nested trait's path also drives bare-name selector matching: a bare word
+matches a trait whose path **ends** in that word — so `is = "user"` matches both
+a top-level `user` trait and `host.user`. (A `.class` selector, by contrast,
+matches an output-class name, not a trait path.)
+
 ## `needs`
 
 Declares explicit trait dependencies. Any node gaining this trait automatically gains all listed traits (transitively):

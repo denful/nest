@@ -2,19 +2,10 @@ nest:
 let
   matchesTraitName =
     name: t:
-    if builtins.isString t then
-      t == name || builtins.match (".*\\." + name + "$") t != null
-    else
-      t ? __path
-      && (
-        builtins.concatStringsSep "." t.__path == name
-        ||
-          builtins.match (builtins.concatStringsSep "" [
-            ".*\\."
-            name
-            "$"
-          ]) (builtins.concatStringsSep "." t.__path) != null
-      );
+    let
+      s = if builtins.isString t then t else builtins.concatStringsSep "." t.__path;
+    in
+    (builtins.isString t || t ? __path) && (s == name || builtins.match ".*\\.${name}$" s != null);
 
   handleNot =
     node: sel: ctx:

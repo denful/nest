@@ -5,7 +5,8 @@ description: Rule format, class keys, function-valued rules, the synth key, and 
 
 import { Aside } from '@astrojs/starlight/components';
 
-Rules live in `nest.rules` as a list of attrsets. Each rule has:
+Rules live in `nest.rules`, as a list or as an attrset keyed by selector or label
+(see [Rule forms](#rule-forms)). Each rule has:
 - `is` — selector determining which nodes this rule applies to
 - One or more **class keys** (`nixos`, `user`, etc.) — config contributed to matching nodes
 
@@ -17,6 +18,30 @@ nest.rules = [
   }
 ];
 ```
+
+## Rule forms
+
+`nest.rules` accepts three shapes, all normalised to the same internal list:
+
+```nix
+# 1. List form — an explicit `is` per rule:
+nest.rules = [ { is = nest.host; nixos = { }; } ];
+
+# 2. Selector-keyed — the attrset KEY is the selector string:
+nest.rules."host > user".user = { };
+
+# 3. Label-keyed — the key is just a label, the selector lives in `is`
+#    (handy when the selector is a DSL value rather than a string):
+nest.rules.hostDefaults = { is = nest.host; nixos = { }; };
+```
+
+<Aside type="note">
+The **attrset forms (selector- and label-keyed) merge across `import-tree`
+files** — split your rules into `rules/host.nix`, `rules/users.nix`, … and they
+all apply (the `default` template does exactly this across five files; the
+`selectors-demo` template mixes a list file with a label-keyed file). Keep
+**list-form** `nest.rules = [ … ]` within a single file.
+</Aside>
 
 ## The `is` selector
 
@@ -66,9 +91,24 @@ Available args:
 | Arg | Type | Description |
 |-----|------|-------------|
 | `select` | select context | [Select API](/reference/select) for this node |
+| `node` | node | The matched node, by a fixed name |
 | entity arg | node | The node itself, keyed by entity trait name (`host`, `user`, `alice`, etc.) |
 
 Only declare the args you need — unused args are filtered out.
+
+### Deferred arguments
+
+An argument nest cannot resolve from the node's context — such as `pkgs`, `lib`,
+or `config` — is **deferred**: nest hands the function to the NixOS module
+system, which supplies those arguments at evaluation time. So a rule can ask for
+`pkgs` and use it exactly like a normal module:
+
+```nix
+{
+  is = nest.host;
+  nixos = { pkgs, ... }: { environment.systemPackages = [ pkgs.git ]; };
+}
+```
 
 ### Function arg for different entity types
 

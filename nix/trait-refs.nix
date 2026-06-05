@@ -3,13 +3,12 @@ let
   flattenTraitTree = tree: map (n: n.value) (nest.traverseNamedTraits tree);
 
   expandNeededByRec =
-    processedTraits: allNodes: nodeAttrs: nodeIsAcc:
+    processedTraits: allTraits: allNodes: nodeAttrs: nodeIsAcc:
     let
       virtualNode = nodeAttrs // {
         is = nodeIsAcc;
       };
       ctx = nest.mkCtx virtualNode allNodes;
-      allTraits = flattenTraitTree processedTraits;
       extras = builtins.filter (
         t:
         (t ? neededBy)
@@ -23,11 +22,11 @@ let
     if extras == [ ] then
       nodeIsAcc
     else
-      expandNeededByRec processedTraits allNodes nodeAttrs (nodeIsAcc ++ extras);
+      expandNeededByRec processedTraits allTraits allNodes nodeAttrs (nodeIsAcc ++ extras);
 
   expandNeededBy =
     processedTraits: nodeIs: nodeAttrs: allNodes:
-    expandNeededByRec processedTraits allNodes nodeAttrs nodeIs;
+    expandNeededByRec processedTraits (flattenTraitTree processedTraits) allNodes nodeAttrs nodeIs;
 in
 {
   inherit flattenTraitTree expandNeededBy;

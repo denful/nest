@@ -1,29 +1,30 @@
 nest:
 let
+  matchesAttrValue =
+    node: key: val:
+    if !(node ? ${key}) then
+      false
+    else if val == "true" then
+      builtins.elem node.${key} [
+        true
+        "true"
+      ]
+    else if val == "false" then
+      builtins.elem node.${key} [
+        false
+        "false"
+      ]
+    else
+      builtins.toString node.${key} == val;
+
   matchesSel =
     node: sel: ctx:
     let
-      matchesAttrValue =
-        key: val:
-        if !(node ? ${key}) then
-          false
-        else if val == "true" then
-          builtins.elem node.${key} [
-            true
-            "true"
-          ]
-        else if val == "false" then
-          builtins.elem node.${key} [
-            false
-            "false"
-          ]
-        else
-          builtins.toString node.${key} == val;
       handlers = {
         star = true;
         id = node.name == sel.name;
         name = node.name == sel.name || builtins.any (t: nest.matchesTraitName sel.name t) node.is;
-        attr = matchesAttrValue sel.key sel.val;
+        attr = matchesAttrValue node sel.key sel.val;
         attrExists = node ? ${sel.key};
         attrs = builtins.all (k: (node ? ${k}) && node.${k} == sel.attrs.${k}) (
           builtins.attrNames sel.attrs

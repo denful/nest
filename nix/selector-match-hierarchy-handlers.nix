@@ -1,5 +1,7 @@
 nest:
 let
+  isCurrentSel = s: builtins.isAttrs s && s.__sel == "current";
+
   findPreviousSibling =
     node: list: prev:
     if list == [ ] then
@@ -27,10 +29,7 @@ let
 
   handleChild =
     node: sel: ctx:
-    let
-      isCurrent = builtins.isAttrs sel.parentSel && sel.parentSel.__sel == "current";
-    in
-    if isCurrent then
+    if isCurrentSel sel.parentSel then
       builtins.any (n: nest.matchesOne n sel.childSel (nest.mkCtx n ctx.allNodes)) ctx.children
     else
       ctx.parentNode != null
@@ -39,10 +38,7 @@ let
 
   handleDescendant =
     node: sel: ctx:
-    let
-      isCurrent = builtins.isAttrs sel.ancestorSel && sel.ancestorSel.__sel == "current";
-    in
-    if isCurrent then
+    if isCurrentSel sel.ancestorSel then
       builtins.any (n: nest.matchesOne n sel.descendantSel (nest.mkCtx n ctx.allNodes)) ctx.descendants
     else
       nest.matchesOne node sel.descendantSel ctx
@@ -54,8 +50,8 @@ let
       siblings = builtins.filter (n: n.__parentPath == node.__parentPath) ctx.allNodes;
       prev = findPreviousSibling node siblings null;
       next = findNextSibling node siblings;
-      prevCur = builtins.isAttrs sel.previousSel && sel.previousSel.__sel == "current";
-      nextCur = builtins.isAttrs sel.nextSel && sel.nextSel.__sel == "current";
+      prevCur = isCurrentSel sel.previousSel;
+      nextCur = isCurrentSel sel.nextSel;
     in
     if prevCur then
       next != null && nest.matchesOne next sel.nextSel (nest.mkCtx next ctx.allNodes)

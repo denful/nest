@@ -3,9 +3,14 @@ title: CSS Syntax
 description: String-based CSS selector syntax supported by Nest — #id, .class, [attr], combinators, and pseudo-classes.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, LinkCard } from '@astrojs/starlight/components';
 
 Nest accepts CSS selector strings wherever a selector is expected. They are parsed at evaluation time and matched by the same engine as programmatic selectors.
+
+Every form below is exercised by the `selectors-demo` template, whose self-tests
+assert exactly which nodes each selector matches.
+
+<LinkCard title="selectors-demo template" href="https://github.com/vic/nest/tree/main/templates/selectors-demo" description="Every selector form, each with a passing test." />
 
 ## Basic tokens
 
@@ -28,10 +33,10 @@ is = "#web-1"      # node named web-1
 
 ### Name (bare word)
 
-Matches by name, same as `#id` but without the `#`:
+Matches by name, or by a trait whose path ends in that word:
 
 ```nix
-is = "web"         # node named web
+is = "web"         # node named web, or carrying a trait ending in `.web`
 ```
 
 ### Class `.traitName`
@@ -52,6 +57,9 @@ is = "[env=prod]"
 is = "[system=x86_64-linux]"
 ```
 
+Boolean attributes are understood: `[key=true]` / `[key=false]` match a real
+`true`/`false` as well as the strings `"true"`/`"false"`.
+
 ### Attribute existence `[key]`
 
 Matches nodes that have the attribute, regardless of value:
@@ -61,16 +69,55 @@ is = "[sshKeys]"
 is = "[httpPort]"
 ```
 
+### Current `&`
+
+`&` is the node currently being matched. On its own it matches anything; its
+value is as an anchor for **relative** selectors (see below):
+
+```nix
+is = "&.nixos"     # this node, and it has the nixos class
+is = "& > .web"    # this node, and it has a direct .web child
+```
+
 ## Compound selectors
 
 Multiple tokens without a combinator — all must match (AND):
 
 ```nix
-is = "#lb-prod.nixos"            # named lb-prod AND has nixos class
+is = "#lb-prod.nixos"                   # named lb-prod AND has nixos class
 is = "[env=prod][system=x86_64-linux]"  # two attribute conditions
 ```
 
-## Or (comma)
+## Combinators
+
+### Descendant (space)
+
+A space between selectors matches a node descended from another (not necessarily
+a direct child):
+
+```nix
+is = "prod web"      # a `web` anywhere under `prod`
+```
+
+### Child `>`
+
+Matches a node that is a **direct** child of another:
+
+```nix
+is = "prod > web"    # node web whose parent is prod
+is = "cluster > *"   # any direct child of cluster
+```
+
+### Adjacent sibling `+`
+
+Matches a node whose immediately-preceding sibling matches the left selector
+(siblings are ordered by their DOM key):
+
+```nix
+is = "#web-1 + #web-2"   # web-2, when web-1 is the sibling just before it
+```
+
+### Or (comma)
 
 Comma-separated alternatives — any must match:
 
@@ -79,28 +126,13 @@ is = "#web-1, #web-2"
 is = "[env=prod], [env=staging]"
 ```
 
-## Child combinator `>`
-
-Matches a node that is a direct child of another:
-
-```nix
-is = "prod > web"    # node named web whose parent is named prod
-is = "cluster > *"   # any direct child of cluster
-```
-
-## Descendant combinator (` + `)
-
-Matches a node descended from another (not necessarily direct child).
+## Pseudo-classes
 
 <Aside type="caution">
-Nest uses ` + ` (space + plus + space) as the descendant separator, not plain space. This avoids ambiguity with compound selectors.
+Commas split a selector at the top level *before* parentheses are considered, so
+you cannot put a comma **inside** a pseudo. For alternatives inside `:is(...)`,
+list them with no separator (e.g. `:is(#a#b)`); for top-level OR, use `,`.
 </Aside>
-
-```nix
-is = "cluster +web"    # web descended from cluster
-```
-
-## Pseudo-classes
 
 ### `:not(sel)`
 
@@ -113,11 +145,20 @@ is = ":not([env=staging])"
 
 ### `:has(sel)`
 
-Matches nodes that have a direct child matching `sel`:
+Matches nodes that have a descendant matching `sel`:
 
 ```nix
 is = ":has(.admin)"
 is = ":has([sshKeys])"
+```
+
+### `:is(sel)`
+
+Matches nodes matching `sel`; with a separator-less list it is an OR over the
+alternatives:
+
+```nix
+is = "box:is(#web-1#web-2)"   # a box that is web-1 OR web-2
 ```
 
 ### `:within(sel)`
@@ -127,6 +168,15 @@ Matches nodes that have an ancestor matching `sel`:
 ```nix
 is = ":within(#prod)"
 is = ":within(.nixos)"
+```
+
+## Relative selectors with `&`
+
+Combinators anchored on `&` describe the matched node's surroundings:
+
+```nix
+is = "& > .web"        # I have a direct .web child   (like :has(> .web))
+is = "&:has(.admin)"   # I have an .admin descendant
 ```
 
 ## Complete examples
@@ -144,11 +194,11 @@ is = "[env=prod].nixos"
 # Either prod or staging
 is = "[env=prod], [env=staging]"
 
-# Hosts with admin children
+# Hosts with admin descendants
 is = ".nixos:has(.admin)"
 
 # Web nodes under prod
-is = "prod > .nixos[addr]"
+is = "prod .nixos[addr]"
 ```
 
 ## Parsing
@@ -157,11 +207,13 @@ String selectors are parsed by `parseCssSel` which tokenizes via `parseCompound`
 
 - `#name` → `{ __sel = "id"; name = "…" }`
 - `.class` → `{ __sel = "class"; name = "…" }`
+- `&` → `{ __sel = "current" }`
 - `[k=v]` → `{ __sel = "attr"; key = "k"; val = "v" }`
 - `[k]` → `{ __sel = "attrExists"; key = "k" }`
 - `:pseudo(inner)` → `{ __sel = "pseudo"; selector = parsed-inner }`
 - `,` → `{ __sel = "or"; selectors = [ … ] }`
+- ` ` (space) → `{ __sel = "descendant"; ancestorSel = …; descendantSel = … }`
 - ` > ` → `{ __sel = "child"; parentSel = …; childSel = … }`
-- ` + ` → `{ __sel = "descendant"; ancestorSel = …; descendantSel = … }`
+- ` + ` → `{ __sel = "adjacent"; previousSel = …; nextSel = … }`
 
 Compound (multiple tokens) → list, matched as AND.

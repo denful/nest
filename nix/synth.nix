@@ -45,16 +45,19 @@ let
       in
       nest.applySynth processedTraits expandedNodes synthResult node;
 
-  synthesizeNodes =
-    processedTraits: expandedNodes:
+  flatMapSynth =
+    synthOneFn:
     builtins.concatMap (
       node:
       let
-        r = synthOne processedTraits expandedNodes node;
+        r = synthOneFn node;
       in
       [ r.node ] ++ r.children
-    ) expandedNodes;
+    );
+
+  synthesizeNodes =
+    processedTraits: expandedNodes: flatMapSynth (synthOne processedTraits expandedNodes) expandedNodes;
 in
 {
-  inherit applySynth synthesizeNodes;
+  inherit applySynth synthesizeNodes flatMapSynth;
 }

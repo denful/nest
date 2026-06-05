@@ -30,7 +30,7 @@ _nest: {
   parseCurrent =
     str: self:
     let
-      rest = builtins.substring 1 (builtins.stringLength str - 1) str;
+      rest = builtins.substring 1 (-1) str;
     in
     [ { __sel = "current"; } ] ++ self rest;
 

@@ -9,14 +9,13 @@ nest: {
   parseAttr =
     str: self:
     let
-      len = builtins.length;
       rest = builtins.substring 1 (-1) str;
       attrParts = nest.splitOn "]" rest;
       inner = builtins.elemAt attrParts 0;
-      after = if len attrParts > 1 then builtins.elemAt attrParts 1 else "";
+      after = if nest.len attrParts > 1 then builtins.elemAt attrParts 1 else "";
       eqParts = nest.splitOn "=" inner;
     in
-    if len eqParts > 1 then
+    if nest.len eqParts > 1 then
       [
         {
           __sel = "attr";

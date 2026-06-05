@@ -26,6 +26,10 @@
         path = ./templates/minimal;
         description = "Minimal nest template";
       };
+      selectors-demo = {
+        path = ./templates/selectors-demo;
+        description = "Selector algebra showcase: every selector form, tested";
+      };
       noflake = {
         path = ./templates/noflake;
         description = "Template without flakes";

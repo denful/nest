@@ -23,6 +23,7 @@ ci:
   just check default
   just check minimal
   just check fleet-demo
+  just check selectors-demo
   just check flake-parts-modules
   just check flake-file
   just check-noflake
